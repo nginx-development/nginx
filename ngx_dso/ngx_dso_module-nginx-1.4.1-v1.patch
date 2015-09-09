@@ -1,0 +1,32 @@
+510c558,563
+< echo 'ngx_module_t *ngx_modules[] = {'        >> $NGX_MODULES_C
+---
+> 
+> if [ $NGX_DSO = YES ] ; then
+> 	echo 'ngx_module_t *_ngx_modules[] = {'        >> $NGX_MODULES_C
+> else
+> 	echo 'ngx_module_t *ngx_modules[] = {'        >> $NGX_MODULES_C
+> fi
+521a575,596
+> 
+> if [ $NGX_DSO = YES ] ; then
+> 	echo 'ngx_module_t **ngx_modules = _ngx_modules;'        >> $NGX_MODULES_C
+> 	echo													>> $NGX_MODULES_C
+> 
+> 	echo 'u_char *_ngx_module_names[] = {'                  >> $NGX_MODULES_C
+> 
+> 	for mod in $modules
+> 	do
+> 		echo "    (u_char*) \"$mod\","                      >> $NGX_MODULES_C
+> 	done
+> 	
+> 	cat << END                                    >> $NGX_MODULES_C
+>     NULL
+> };
+> 
+> END
+> 
+> 	echo 'u_char **ngx_module_names = _ngx_module_names;'        >> $NGX_MODULES_C
+> 	echo													>> $NGX_MODULES_C
+> fi
+> 
