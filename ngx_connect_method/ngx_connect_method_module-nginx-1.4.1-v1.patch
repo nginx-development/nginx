@@ -1,0 +1,140 @@
+42a43
+> #define NGX_HTTP_CONNECT                   0x010000 //add mayfeng 2013-10-25
+283a285
+> 
+565a568,584
+> 
+> 	//add mayfeng 2013-12-09 support tcp udp proxy.
+> 	ngx_buf_t						 *buf;
+> 	off_t							  bytes_read;
+> 	off_t							  bytes_write;
+> 
+> 	/* 
+> 	 * add mayfeng 2013-10-25
+> 	 * support HTTP CONNECT request 
+> 	 */ 
+>     u_char                           *connect_start;
+>     u_char                           *connect_end;
+>     u_char                           *connect_host_start;
+>     u_char                           *connect_host_end;
+>     u_char                           *connect_port_start;
+>     u_char                           *connect_port_end;
+> 	//end
+134c134,141
+<         sw_almost_done
+---
+>         sw_almost_done,
+> 		//add mayfeng 2013-10-25 parse HTTP CONNECT
+> 		sw_spaces_before_connect_host,
+> 		sw_connect_host_start,
+> 		sw_connect_host,
+> 		sw_connect_host_end,
+> 		sw_connect_port
+> 		//end
+244a252,258
+> 					
+> 					//add mayfeng 2013-10-25
+> 					if (ngx_str7_cmp(m, 'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '))
+>                     {
+>                         r->method = NGX_HTTP_CONNECT;
+>                     }
+> 					//end
+266c280,284
+<                 state = sw_spaces_before_uri;
+---
+> 				if (r->method & NGX_HTTP_CONNECT){
+>                 	state = sw_spaces_before_connect_host;
+> 				}else{
+>                 	state = sw_spaces_before_uri;
+> 				}
+274a293,316
+> 		//add mayfeng 2013-10-25
+> 		/* space* before connect host */
+> 		case sw_spaces_before_connect_host:
+> 
+>             if (ch == '/') {
+>                 return NGX_HTTP_PARSE_INVALID_REQUEST;
+>             }
+> 
+>             c = (u_char) (ch | 0x20);
+>             if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+>                 r->connect_start = p;
+>                 state = sw_connect_host_start;
+>                 break;
+>             }
+> 
+>             switch (ch) {
+>             case ' ':
+>                 break;
+>             default:
+>                 return NGX_HTTP_PARSE_INVALID_REQUEST;
+>             }
+>             break;
+> 
+> 		case sw_connect_host_start:
+275a318,382
+>             r->connect_host_start = p;
+>             state = sw_connect_host;
+> 
+>             /* fall through */
+> 
+>         case sw_connect_host:
+> 
+>             c = (u_char) (ch | 0x20);
+>             if (c >= 'a' && c <= 'z') {
+>                 break;
+>             }
+> 
+>             if ((ch >= '0' && ch <= '9') || ch == '.' || ch == '-') {
+>                 break;
+>             }
+> 
+>             r->connect_host_end = p;
+>             state = sw_connect_host_end;
+>             /* fall through */
+> 
+>         case sw_connect_host_end:
+> 
+>             switch (ch) {
+>             case ':':
+>                 state = sw_connect_port;
+> 				r->connect_port_start = p + 1;
+>                 break;
+>             case ' ':
+>                 r->connect_end = p;
+>                 /*
+>                  * use single "/" from request line to preserve pointers,
+>                  * if request line will be copied to large client buffer
+>                  */
+>                 r->uri_start = r->connect_end + 1;
+>                 r->uri_end = r->connect_end + 2;
+>                 state = sw_host_http_09;
+>                 break;
+>             default:
+>                 return NGX_HTTP_PARSE_INVALID_REQUEST;
+>             }
+>             break;
+>  
+> 		case sw_connect_port:
+>             if (ch >= '0' && ch <= '9') {
+>                 break;
+>             }
+> 
+>             switch (ch) {
+>             case ' ':
+>                 r->connect_port_end = p;
+>                 r->connect_end = p;
+>                 /*
+>                  * use single "/" from request line to preserve pointers,
+>                  * if request line will be copied to large client buffer
+>                  */
+>                 r->uri_start = r->connect_end + 1;
+>                 r->uri_end = r->connect_end + 2;
+>                 state = sw_host_http_09;
+>                 break;
+>             default:
+>                 return NGX_HTTP_PARSE_INVALID_REQUEST;
+>             }
+>             break;
+> 		//end
+> 		
